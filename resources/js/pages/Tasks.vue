@@ -11,6 +11,7 @@ let newTask = ref({
     isEditing: false,
     isReady: false
 });
+const addingErrors = ref([]);
 const error = ref('');
 const originalTask = ref({});
 const tasks = ref([]);
@@ -49,13 +50,19 @@ function sortTasks() {
 }
 
 function addTask(task) {
+    addingErrors.value = [];
     axios.post("/api/tasks/add", task).then(response => {
         let addedTask = response.data.task;
         addedTask.isEditing = false;
         tasks.value.push(addedTask);
         sortTasks();
     }).catch(error => {
-        console.log(error);
+        if (error.response.data.errors.title) {
+            addingErrors.value.push(error.response.data.errors.title[0]);
+        }
+        if (error.response.data.errors.deadline) {
+            addingErrors.value.push(error.response.data.errors.deadline[0]);
+        }
     });
     newTask.value.deadline = '';
     newTask.value.title = '';
@@ -108,33 +115,35 @@ function deleteTask(task) {
 </script>
 
 <template>
-    <div class="flex justify-center mx-40 mt-2.5 py-2 rounded-lg bg-gray-50 dark:bg-gray-700 ">
+    <div class="grid grid-cols-2 grid-rows-3 mx-2 lg:mx-40 lg:grid-cols-[1fr_1fr_2fr_0.5fr] lg:grid-rows-1 mt-2.5 gap-2 py-2 rounded-lg bg-gray-50 dark:bg-gray-700 ">
         <input v-model="newTask.deadline" type="datetime-local"
-               class="block mx-4 p-2.5  text-sm text-gray-400  bg-gray-800 border border-gray-600 rounded-lg">
+               class="block mx-2 p-2.5 text-sm text-gray-400  bg-gray-800 border border-gray-600 rounded-lg">
         <input v-model="newTask.title"
-               class="dark:text-white block mx-4 p-2.5 text-sm placeholder-gray-400 bg-white rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600"
+               class="dark:text-white block mx-2 p-2.5 text-sm placeholder-gray-400 bg-white rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600"
                placeholder="title"/>
         <textarea v-model="newTask.description" rows="1"
-                  class="resize-none block mx-4 p-2.5  text-sm w-1/2  bg-white rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                  class="resize-none block mx-2 col-span-2 lg:col-span-1 min-w-min p-2.5 text-sm bg-white rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                   placeholder="description"></textarea>
         <button @click="addTask(newTask)"
-                class="inline-flex justify-center p-2 text-blue-600 rounded-full cursor-pointer hover:bg-blue-100 dark:text-blue-500 dark:hover:bg-gray-600">
+                class="block min-w-min lg:border-none  mx-2 col-span-2 lg:col-span-1 border-2 border-gray-600 p-2 rounded-full cursor-pointer text-blue-500 hover:bg-gray-600">
             Add
         </button>
+        <div class="text-red-600 col-span-2 lg:col-span-1" v-for="error in addingErrors">
+            <p class="text-center">{{ error }}</p>
+        </div>
     </div>
-    <ul class="text-xl divide-y divide-gray-100 container mx-auto px-40">
+    <ul class="divide-y divide-gray-100 mx-2 lg:mx-40">
         <li v-for="task in tasks" :key="task.id">
-            <div v-if="task.isEditing === false" class="flex justify-end gap-x-6 py-5 bg-transparent">
-                <div class="flex min-w-0 gap-x-4 w-1/3">
-                    <div class="min-w-0 flex-auto">
-                        <p class="leading-6 text-white">{{ task.title }}</p>
-                        <p class="mt-1 truncate leading-5 text-gray-500">{{ task.description }}</p>
-                    </div>
+            <div v-if="task.isEditing === false" class="grid grid-cols-4 gap-x-6 py-5 bg-transparent md:text-xl">
+                <div class="grid grid-rows-2 col-span-2 sm:grid-cols-2 min-w-0">
+                        <p class="leading-6 block mt-auto text-white">{{ task.title }}</p>
+                        <p class="leading-6 block my-auto sm:min-w-min sm:row-span-2 text-gray-400">{{
+                                moment(task.deadline).format('MMMM Do YYYY, H:mm:ss')
+                            }}
+                        </p>
+                    <p class="hidden sm:block mt-1 truncate leading-5 text-gray-500">{{ task.description }}</p>
                 </div>
-                <div class="w-2/3 hidden shrink-0 sm:flex sm:flex-col sm:items-end">
-                    <p class="leading-6 text-gray-400">{{ moment(task.deadline).format('MMMM Do YYYY, H:mm:ss') }}</p>
-                </div>
-                <div class="hidden shrink-0 justify-center sm:flex sm:flex-col sm:items-end">
+                <div class="  justify-center flex flex-col items-end">
                     <div class="inline-flex items-center">
                         <label class="relative flex items-center p-3 rounded-full cursor-pointer">
                             <input type="checkbox"
@@ -156,15 +165,15 @@ function deleteTask(task) {
                         </label>
                     </div>
                 </div>
-                <div class=" flex justify-end space-x-2">
+                <div class="my-auto flex flex-wrap justify-end">
                     <button
-                        class="p-0.5 w-16 bg-transparent border-2 border-rose-900 rounded hover:bg-rose-900 text-white"
+                        class="p-0.5 m-2 w-16 h-12 block bg-transparent border-2 border-rose-900 rounded hover:bg-rose-900 text-white"
                         @click="deleteTask(task)"
                     >
                         Delete
                     </button>
                     <button
-                        class="p-0.5 w-16 bg-transparent border-2 border-purple-800 rounded hover:bg-purple-800 text-white"
+                        class="p-0.5 m-2 w-16 h-12 block bg-transparent border-2 border-purple-800 rounded hover:bg-purple-800 text-white"
                         @click='EditClick(task)'>
                         Edit
                     </button>
@@ -207,4 +216,6 @@ function deleteTask(task) {
 </template>
 
 <style scoped lang="sass">
+body
+    box-sizing: border-box
 </style>
